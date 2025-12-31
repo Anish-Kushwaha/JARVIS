@@ -28,7 +28,7 @@ If you discover a security vulnerability, please follow the steps below **respon
 
 ### 📧 Contact
 - **Maintainer:** Anish Kushwaha  
-- **GitHub:** https://github.com/Anish-Kushwaha  
+- **Email :** Anish-Kushwaha@zohomail.in
 
 (If an email address is provided in the future, use that for private disclosure.)
 
